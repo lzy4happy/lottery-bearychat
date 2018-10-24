@@ -63,10 +63,9 @@ def checkRule(text, database, client):
             return u"恭喜中奖啦!>_<" + who
         else:
             return u'人员不足，程序员都被祭天了吗?'
-    num = util.getResultForDigit(text)
     an = database(text)
-    who = randomWho(client, num)
     if an:
+        who = randomWho(client, num)
         an = an.decode('utf-8').replace("@", who)
         return an
     else:
