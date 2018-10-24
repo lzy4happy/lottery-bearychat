@@ -65,7 +65,7 @@ def checkRule(text, database, client):
             return u'人员不足，程序员都被祭天了吗?'
     an = database(text)
     if an:
-        who = randomWho(client, num)
+        who = randomWho(client, 1)
         an = an.decode('utf-8').replace("@", who)
         return an
     else:
