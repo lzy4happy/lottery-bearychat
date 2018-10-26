@@ -69,7 +69,7 @@ def checkRule(text, database, client):
         an = an.decode('utf-8').replace("@", who)
         return an
     else:
-        return u"今天天气真好，不是嘛" + who
+        return u"今天天气真好，不是嘛"
 
 def randomWho(client, num):
     usrs = client.user.list()
