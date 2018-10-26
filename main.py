@@ -55,7 +55,7 @@ def checkWho(text):
     else:
         return False
 def checkRule(text, database, client):
-    if (text.find(u"抽") != -1) and util.getResultForDigit(text) > 0:
+    if (text.find(u"抽") != -1 or text.find(u"选")) and util.getResultForDigit(text) > 0:
         num = util.getResultForDigit(text)
         print 'number == ' + str(num)
         who = randomWho(client, num)
