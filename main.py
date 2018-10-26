@@ -104,7 +104,8 @@ class Client(object):
     def __init__(self):
         self.ioloop = IOLoop.instance()
         self.database = util.getSmailarDatabase()
-        self.openapi = openapi.Client("d50245610146e046325d6d8f7e588421")
+        #self.openapi = openapi.Client("d50245610146e046325d6d8f7e588421")
+        self.openapi = openapi.Client("41ca021bb18ee88829df20f27c168659")
         self.me = '@<=' + self.openapi.user.me()['id'] + '=>'
         self.ws = None
         self.connect()
@@ -115,7 +116,7 @@ class Client(object):
     def connect(self):
         print("trying to connect")
         try:
-            post_data = {'token': "d50245610146e046325d6d8f7e588421"}
+            post_data = {'token': "41ca021bb18ee88829df20f27c168659"}
             get_url = yield AsyncHTTPClient().fetch("https://rtm.bearychat.com/start", method="POST",
                                                     body=urlencode(post_data), connect_timeout=5, request_timeout=5)
             url = json.loads(get_url.body.decode()).get('result', {}).get('ws_host')
