@@ -16,64 +16,34 @@ from tornado.httpclient import AsyncHTTPClient
 from tornado import gen
 from tornado.websocket import websocket_connect
 
-KEY_WHO = 'who'
-
-class Handler():
-    handle_register = {}
-
-    def __init__(self, func):
-        Handler.handle_register[func.__name__] = func
-
-    @classmethod
-    def get(cls, k):
-        for i in cls.handle_register.keys():
-            if re.search(i, k):
-                return cls.handle_register.get(i)
-        return False
-
-    def __call__(self, func):
-        return func
 
 
-@Handler
-def test(client):
-    return "Hello,World"
+THE_ROBT_TOKENT = "d50245610146e046325d6d8f7e588421"
 
-@Handler
-def who(client):
-    usrs = client.user.list()
-    usrnames = []
-    for u in usrs:
-        if u['type'] == u'normal':
-            usrnames.append('@<=' + u['id'] + '=>')
-    return ','.join(usrnames)
-
-
-def checkWho(text):
-    if text.find(KEY_WHO) != -1:
-        return True
-    else:
-        return False
-def checkRule(text, database, client):
-    if (text.find(u"抽") != -1 or text.find(u"选")) and util.getResultForDigit(text) > 0:
+def checkRule(text, usrs):
+    if (text.find(u"抽") != -1 or text.find(u"选"))  and util.getResultForDigit(text) > 0:
         num = util.getResultForDigit(text)
         print 'number == ' + str(num)
-        who = randomWho(client, num)
+        who = randomWho(num, usrs)
+
         if(who.find(u"@") != -1):
             return u"恭喜中奖啦!>_<" + who
         else:
             return u'人员不足，程序员都被祭天了吗?'
+    return None
+
+
+def checkDatabase(text, database,  usrs):
     an = database(text)
     if an:
-        who = randomWho(client, 1)
+        who = randomWho(1, usrs)
         an = an.decode('utf-8').replace("@", who)
         return an
-    else:
-        return u"今天天气真好，不是嘛"
+    return None
 
-def randomWho(client, num):
-    usrs = client.user.list()
 
+def randomWho(num, usrs):
+    # usrs = client.user.list()
     usrsNormal = []
     for u in usrs:
         if u['type'] == u'normal':
@@ -89,23 +59,43 @@ def randomWho(client, num):
             usrnames.append('@<=' + usrsNormal[i]['id'] + '=>')
     return ','.join(usrnames)
 
-# def randomWho(client):
-#     usrs = client.user.list()
-#     usrnames = []
-#     for u in usrs:
-#         if u['type'] == u'normal':
-#             usrnames.append('@<=' + u['id'] + '=>')
-#     size = len(usrnames)
-#     index = random.randint(0,size-1)
-#     return usrnames[index]
+def getVChennalUser(client, chnnel_id):
+    usrs = []
+    try:
+        info = client.vchannel.info(json= {"vchannel_id" : chnnel_id})
+    except Exception as e:
+        print e.message
+    else:
+        members = info['member_uids']
+        for m in members:
+            try:
+                u = client.user.info(json={"user_id" : m})
+                usrs.append(u)
+            except Exception as e:
+                print e.message
+    return usrs
 
+def getUserList(client):
+    usrs = []
+    try:
+        usrs = client.user.list()
+    except Exception as e:
+        print e.message
+    return usrs
+
+def getChennalUser(client, chnnel_id):
+    try:
+        info = client.vchannel.info(json= {"channel_id" : chnnel_id})
+    except Exception as e:
+        print e.message
+    else:
+        print info
 
 class Client(object):
     def __init__(self):
         self.ioloop = IOLoop.instance()
         self.database = util.getSmailarDatabase()
-        #self.openapi = openapi.Client("d50245610146e046325d6d8f7e588421")
-        self.openapi = openapi.Client("41ca021bb18ee88829df20f27c168659")
+        self.openapi = openapi.Client(THE_ROBT_TOKENT)
         self.me = '@<=' + self.openapi.user.me()['id'] + '=>'
         self.ws = None
         self.connect()
@@ -116,11 +106,10 @@ class Client(object):
     def connect(self):
         print("trying to connect")
         try:
-            post_data = {'token': "41ca021bb18ee88829df20f27c168659"}
+            post_data = {'token': THE_ROBT_TOKENT}
             get_url = yield AsyncHTTPClient().fetch("https://rtm.bearychat.com/start", method="POST",
                                                     body=urlencode(post_data), connect_timeout=5, request_timeout=5)
             url = json.loads(get_url.body.decode()).get('result', {}).get('ws_host')
-            print url
             self.ws = yield websocket_connect(url, connect_timeout=5)
         except Exception as e:
             print("connection error,{}".format(e))
@@ -141,23 +130,26 @@ class Client(object):
                 self.ws = None
                 break
             print(msg)
+
+
             if msg.get('type') != "channel_message":
                 continue
-            print(msg)
-            #replay_func = Handler.get(msg.get("text"))
-            text = msg.get('text')
-            if self.me in text:
+
+            text       = msg.get('text')
+            chennal_id = msg.get('vchannel_id')
+
+            usrlist = []
+            if chennal_id:
+                usrlist = getVChennalUser(self.openapi, chennal_id)
+            else:
+                usrlist = getUserList(self.openapi)
+
+            if text and self.me in text:
                 text = text.replace(self.me, '')
-                #print text
-                #print self.me
+                raw_text = checkRule(text, usrlist)
 
-                #raw_text = replay_func(self.openapi)
-                #raw_text = randomWho(self.openapi)
-
-                raw_text = checkRule(text, self.database, self.openapi)
-                #print raw_text
                 finish_text = json.dumps(
-                    {"text": raw_text,
+                    {"text": "假装没看到",
                      "vchannel_id": msg.get("vchannel_id"),
                      "call_id": 23,
                      # "refer_key": msg.get("key"),
@@ -165,7 +157,34 @@ class Client(object):
                      "type": "channel_message",
                      "channel_id": msg.get("channel_id")}
                 )
-                self.ws.write_message(finish_text)
+
+                if raw_text:
+                    finish_text = json.dumps(
+                        {"text": raw_text,
+                         "vchannel_id": msg.get("vchannel_id"),
+                         "call_id": 23,
+                         # "refer_key": msg.get("key"),
+                         "refer_key": '',
+                         "type": "channel_message",
+                         "channel_id": msg.get("channel_id")}
+                    )
+                raw_text = checkDatabase(text, self.database, usrlist)
+                if raw_text:
+                    finish_text = json.dumps(
+                        {"text": raw_text,
+                         "vchannel_id": msg.get("vchannel_id"),
+                         "call_id": 23,
+                         # "refer_key": msg.get("key"),
+                         "refer_key": '',
+                         "type": "channel_message",
+                         "channel_id": msg.get("channel_id")}
+                    )
+
+                try:
+                    self.ws.write_message(finish_text)
+                except Exception as e:
+                    print e.message
+
 
     def keep_alive(self):
         if self.ws is None:
